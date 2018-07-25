@@ -2,3 +2,4 @@
 .idea
 app.properties
 target
+*.log
