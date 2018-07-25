@@ -24,23 +24,25 @@ public class UserSession {
 	private static Logger LOG = BookingApp.LOG;
 
 	private static int trackingId = 0;
-	private static final ExecutorService executor = Executors.newFixedThreadPool(36);
-	private static final List<UserSession> sessions = new ArrayList<>();
+
 	private static final Pattern pattern = Pattern.compile("<TD>Member ID:.+<TD align=center>(\\d+)</TD>");
 
 	private AppProperties p;
 	private String user;
 	private Cookie cookie;
 	private long membershipId;
-	private Future task;
 	private long timer;
+	private int court;
+	private int session;
+	private String allocation;
+	private int id;
 
-	private UserSession(AppProperties p, String user, Cookie cookie, long membershipId) throws IOException {
+	private UserSession(AppProperties p, String user, Cookie cookie, long membershipId) {
 		this.p = p;
 		this.user = user;
 		this.cookie = cookie;
 		this.membershipId = membershipId;
-
+		this.id = ++trackingId;
 		//time to timer
 		Calendar c = Calendar.getInstance();
 		c.add(Calendar.DAY_OF_WEEK, 1);
@@ -49,8 +51,6 @@ public class UserSession {
 		c.set(Calendar.SECOND, 0);
 		c.set(Calendar.MILLISECOND, 0);
 		timer = c.getTimeInMillis();
-
-		sessions.add(this);
 	}
 
 	public static UserSession loginSession(AppProperties p, String user, String password) throws IOException {
@@ -139,11 +139,7 @@ public class UserSession {
 		LOG.finer("\nNavigateSelectDate>>>\n" + response);
 	}
 
-	public void bookAsync(int court, int session) {
-		if (court < 1 || session < 1) {
-			throw new IllegalArgumentException("court or session need to be 1 or above");
-		}
-		LOG.info(user + " Attempting to book court " + court + " session " + session);
+	private void generateAllocation() {
 		String courtStr = "";
 		switch (court) {
 			case 1:
@@ -168,85 +164,95 @@ public class UserSession {
 				new UnsupportedOperationException("Court " + court + " is not supported");
 		}
 		String sessionStr = String.valueOf(390 + (session * 30));
-		String alloc = courtStr + "|" + sessionStr + "|73|9|167|";
-		LOG.finer("calculated court & session time: " + alloc);
-		bookUntilSuccessfulOrAbort(alloc);
+		this.allocation = courtStr + "|" + sessionStr + "|73|9|167|";
 	}
 
-	private void bookUntilSuccessfulOrAbort(String alloc) {
-		LOG.info("trying to book allocation: " + alloc);
-		int id = ++trackingId;
-		this.task = executor.submit(
-				() -> {
-						long loop = 0;
-						while (true) {
-							try {
-								RestResponse response = new JdkRequest(p.getBookingUrl())
-										.uri().queryParam("a", alloc)
-										.back()
-										.through(CookieOptimizingWire.class)
-										.header(HttpHeaders.COOKIE, getCookies())
-										.fetch()
-										.as(RestResponse.class);
-								LOG.finer("\nBooking-request>>>\n" + response);
+	public void sessionToBook(int court, int session) {
+		if (court < 1 || session < 1) {
+			throw new IllegalArgumentException("court or session need to be 1 or above");
+		}
+		this.court =  court;
+		this.session = session;
+		LOG.info(user + " Attempting to book court " + court + " session " + session);
+		generateAllocation();
+		LOG.finer("calculated court & session time: " + allocation);
+	}
 
-								BookingStatus status = BookingStatus.FAILED_RETRY;
-								if (response.body().toLowerCase().contains("booked by someone else")) {
-									status = BookingStatus.FAILED_ABORT;
-								} else if (response.body().toLowerCase().contains("error")) {
-									status = BookingStatus.FAILED_RETRY;
-								} else if (response.body().toLowerCase().contains("accept")) {
-									response = new JdkRequest(p.getBookingUrl())
-											.method("POST")
-											.through(CookieOptimizingWire.class)
-											.header("Content-Type", "application/x-www-form-urlencoded")
-											.header(HttpHeaders.COOKIE, getCookies())
-											.body()
-											.formParam("accept", "YES")
-											.back()
-											.fetch()
-											.as(RestResponse.class)
-											.follow()
-											.fetch()
-											.as(RestResponse.class)
-									;
-									LOG.finer("\nBooking Accept>>>\n" + response);
-									//response.assertStatus(HttpURLConnection.HTTP_OK);//might be too busy, just retry anyway
-									String html = response.body();
-									if (html.toLowerCase().contains("court period activity")) {
-										status = BookingStatus.FAILED_RETRY;
-									} else if (html.toLowerCase().contains("already booked")) {
-										status = BookingStatus.FAILED_ABORT;
-									} else if (html.toLowerCase().contains("booked")) {
-										status = BookingStatus.SUCCESSFUL;
-									}
-								}
-								if (status != BookingStatus.FAILED_RETRY) {
-									LOG.info("Allocation: " + alloc + " ? " + status);
-									return;
-								}
-								final long pausePeriod = getPausePeriod();
-								if(pausePeriod > 0) {
-									Thread.sleep(pausePeriod);
-								} else { //overdrive time
-									LOG.info("Ramup!!! - Paused " + pausePeriod + "ms");
-								}
-								loop++;
-								if (loop % 20 == 0) {
-									LOG.info("Paused " + pausePeriod + "ms");
-								}
-								System.out.print(id);
-								//retrying
-							} catch (IOException e) {
-								//retrying
-								LOG.log(Level.SEVERE, "IO Exception, retrying", e);
-							} catch (Exception e) {
-								LOG.log(Level.SEVERE, "Error abort", e);
-								return;
-							}
+	public Runnable getBookingJob() {
+		return () -> {
+			LOG.info("booker info: " + getBookingInfo());
+			long loop = 0;
+			while (true) {
+				try {
+					RestResponse response = new JdkRequest(p.getBookingUrl())
+							.uri().queryParam("a", allocation)
+							.back()
+							.through(CookieOptimizingWire.class)
+							.header(HttpHeaders.COOKIE, getCookies())
+							.fetch()
+							.as(RestResponse.class);
+					LOG.finer("\nBooking-request>>>\n" + response);
+
+					BookingStatus status = BookingStatus.FAILED_RETRY;
+					if (response.body().toLowerCase().contains("booked by someone else")) {
+						status = BookingStatus.FAILED_ABORT;
+					} else if (response.body().toLowerCase().contains("error")) {
+						status = BookingStatus.FAILED_RETRY;
+					} else if (response.body().toLowerCase().contains("accept")) {
+						response = new JdkRequest(p.getBookingUrl())
+								.method("POST")
+								.through(CookieOptimizingWire.class)
+								.header("Content-Type", "application/x-www-form-urlencoded")
+								.header(HttpHeaders.COOKIE, getCookies())
+								.body()
+								.formParam("accept", "YES")
+								.back()
+								.fetch()
+								.as(RestResponse.class)
+								.follow()
+								.fetch()
+								.as(RestResponse.class)
+						;
+						LOG.finer("\nBooking Accept>>>\n" + response);
+						//response.assertStatus(HttpURLConnection.HTTP_OK);//might be too busy, just retry anyway
+						String html = response.body();
+						if (html.toLowerCase().contains("court period activity")) {
+							status = BookingStatus.FAILED_RETRY;
+						} else if (html.toLowerCase().contains("already booked")) {
+							status = BookingStatus.FAILED_ABORT;
+						} else if (html.toLowerCase().contains("booked")) {
+							status = BookingStatus.SUCCESSFUL;
 						}
+					}
+					if (status != BookingStatus.FAILED_RETRY) {
+						LOG.info(getBookingInfo() + " ? " + status);
+						return;
+					}
+					final long pausePeriod = getPausePeriod();
+					if(pausePeriod > 0) {
+						Thread.sleep(pausePeriod);
+					} else { //overdrive time
+						LOG.info("Ramup!!! - Paused " + pausePeriod + "ms");
+					}
+					loop++;
+					if (loop % 20 == 0) {
+						LOG.info("Paused " + pausePeriod + "ms");
+					}
+					System.out.print(id + ".");
+					//retrying
+				} catch (IOException e) {
+					//retrying
+					LOG.log(Level.SEVERE, "IO Exception, retrying", e);
+				} catch (Exception e) {
+					LOG.log(Level.SEVERE, "Error abort", e);
+					return;
 				}
-		);
+			}
+		};
+	}
+
+	private String getBookingInfo() {
+		return id + "-User:" + user + ", court:" + court + ", session:" + session + " => " + allocation;
 	}
 
 	private long getPausePeriod() {
@@ -257,35 +263,26 @@ public class UserSession {
 		return 5000L;
 	}
 
-	public void logout() throws Exception {
-		//waits for the booking task to complete before LOGging out
-		this.task.get();
-		LOG.info("Trying to logout session " + this.cookie.getValue());
-		new JdkRequest(p.getLoginUrl())
-				.through(CookieOptimizingWire.class)
-				.header(HttpHeaders.COOKIE, getCookies())
-				.method(Request.POST)
-				.header("Content-Type", "application/x-www-form-urlencoded")
-				.body()
-				.formParam("LogOnOff", "Logoff")
-				.back()
-				.fetch()
-				.as(RestResponse.class)
-		//.assertStatus(HttpURLConnection.HTTP_OK)//don't care
-		;
-		LOG.info("User " + user + " Successfully logoff");
-	}
-
-	public static void logoutAllSessions() {
-		sessions.forEach(s -> {
-			try {
-				s.logout();
-			} catch (Exception e) {
-				LOG.log(Level.SEVERE,"Error logging out", e);
-			}
-		});
-		executor.shutdownNow();
-		while (!executor.isTerminated()) {
+	public void logout() {
+		try {
+			//waits for the booking task to complete before LOGging out
+			LOG.info("Trying to logout session " + this.cookie.getValue());
+			new JdkRequest(p.getLoginUrl())
+					.through(CookieOptimizingWire.class)
+					.header(HttpHeaders.COOKIE, getCookies())
+					.method(Request.POST)
+					.header("Content-Type", "application/x-www-form-urlencoded")
+					.body()
+					.formParam("LogOnOff", "Logoff")
+					.back()
+					.fetch()
+					.as(RestResponse.class)
+			//.assertStatus(HttpURLConnection.HTTP_OK)//don't care
+			;
+			LOG.info("User " + user + " Successfully logoff");
+		} catch (IOException ioe) {
+			//ignore
+			LOG.warning("User " + user + " logoff was not successful");
 		}
 	}
 
