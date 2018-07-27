@@ -33,7 +33,7 @@ public class AppProperties {
 	}
 
 	public String getBookingUrl() {
-		return prop.getProperty("booking.url");
+		return prop.getProperty("booking.booking.url");
 	}
 
 	public String getBookingScreenUrl() {
@@ -42,6 +42,10 @@ public class AppProperties {
 
 	public String getBookingCalendarUrl() {
 		return prop.getProperty("booking.calendar.url");
+	}
+
+	public String getName(int user) {
+		return prop.getProperty(user+".name");
 	}
 
 	public String getUser(int user) {

@@ -29,6 +29,8 @@ public class UserSession {
 
 	private AppProperties p;
 	private String user;
+	private String name;
+
 	private Cookie cookie;
 	private long membershipId;
 	private long timer;
@@ -36,10 +38,12 @@ public class UserSession {
 	private int session;
 	private String allocation;
 	private int id;
+	private BookingStatus status;
 
-	private UserSession(AppProperties p, String user, Cookie cookie, long membershipId) {
+	private UserSession(AppProperties p, String user, Cookie cookie, long membershipId,  String name) {
 		this.p = p;
 		this.user = user;
+		this.name = name;
 		this.cookie = cookie;
 		this.membershipId = membershipId;
 		this.id = ++trackingId;
@@ -53,7 +57,7 @@ public class UserSession {
 		timer = c.getTimeInMillis();
 	}
 
-	public static UserSession loginSession(AppProperties p, String user, String password) throws IOException {
+	public static UserSession loginSession(AppProperties p, String user, String password, String name) throws IOException {
 		LOG.finer("url: " + p.getLoginUrl());
 		LOG.finer("LogonU: " + user);
 
@@ -85,7 +89,7 @@ public class UserSession {
 			}
 		}
 		LOG.info("Successfully logged in as `" + user + "` membership id: " + membershipId + " with session: " + cookie.getValue());
-		return new UserSession(p, user, cookie, membershipId);
+		return new UserSession(p, user, cookie, membershipId, name);
 	}
 
 	private static long extractMembershipId(String html) {
@@ -181,7 +185,6 @@ public class UserSession {
 	public Runnable getBookingJob() {
 		return () -> {
 			LOG.info("booker info: " + getBookingInfo());
-			long loop = 0;
 			while (true) {
 				try {
 					RestResponse response = new JdkRequest(p.getBookingUrl())
@@ -193,7 +196,7 @@ public class UserSession {
 							.as(RestResponse.class);
 					LOG.finer("\nBooking-request>>>\n" + response);
 
-					BookingStatus status = BookingStatus.FAILED_RETRY;
+					status = BookingStatus.FAILED_RETRY;
 					if (response.body().toLowerCase().contains("booked by someone else")) {
 						status = BookingStatus.FAILED_ABORT;
 					} else if (response.body().toLowerCase().contains("error")) {
@@ -234,10 +237,6 @@ public class UserSession {
 					} else { //overdrive time
 						LOG.info("Ramup!!! - Paused " + pausePeriod + "ms");
 					}
-					loop++;
-					if (loop % 20 == 0) {
-						LOG.info("Paused " + pausePeriod + "ms");
-					}
 					System.out.print(id + ".");
 					//retrying
 				} catch (IOException e) {
@@ -251,16 +250,32 @@ public class UserSession {
 		};
 	}
 
-	private String getBookingInfo() {
-		return id + "-User:" + user + ", court:" + court + ", session:" + session + " => " + allocation;
+	public BookingStatus getStatus() {
+		return status;
+	}
+
+	private String decodeSessionTime(int session) {
+		switch (session) {
+			case 1: return "7am   ";
+			case 2: return "7:30am";
+			case 3: return "8am   ";
+			case 4: return "8:30am";
+			case 5: return "9am   ";
+			case 6: return "9:30am";
+			default: return ">10am";
+		}
+	}
+
+	public String getBookingInfo() {
+		return id + "-User:" + name + ", court:" + court + ", session:" + decodeSessionTime(session) + " => " + allocation;
 	}
 
 	private long getPausePeriod() {
 		long now = Calendar.getInstance().getTimeInMillis();
-		if (timer - now < (30 * 1000) || now >= timer) {
+		if (timer - now < (60 * 1000) || now >= timer) {
 			return 0L;//ram up
 		}
-		return 5000L;
+		return 30 * 1000L;//each poll pauses 30s
 	}
 
 	public void logout() {
@@ -286,7 +301,8 @@ public class UserSession {
 		}
 	}
 
-	public enum BookingStatus {
-		FAILED_RETRY, FAILED_ABORT, SUCCESSFUL
-	}
+}
+
+enum BookingStatus {
+	FAILED_RETRY, FAILED_ABORT, SUCCESSFUL
 }

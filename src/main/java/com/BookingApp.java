@@ -7,9 +7,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
@@ -18,8 +16,12 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 public class BookingApp {
+
+	private static BookingApp engine = new BookingApp();
 	public static Logger LOG;
 	private static final int RETRY_ATTEMPT_MAX = 10;
+	private static AppProperties p = null;
+	private static String dateToBook;
 
 	public static void main(String[] args) throws IOException {
 		//config logger
@@ -35,55 +37,79 @@ public class BookingApp {
 		LOG.addHandler(fileHandler);
 
 		LOG.info("Booking app started");
-		AppProperties p = AppProperties.getInstance();
+		p = AppProperties.getInstance();
 
+		//calculate the date to book
+		dateToBook = engine.getBookingDate();
+
+		engine
+				.loginAllSessions()
+				.beginBookingDaemon()
+				.logoutAllSessions()
+				.printSuccessfulSessions();
+
+		LOG.info("Booking completed see bookingApp.log for full details");
+	}
+
+	private BookingApp loginAllSessions() {
+		SessionManager manager = SessionManager.getInstance();
+
+		for (String s : p.getUsersList()) {
+			int userPrefix = Integer.parseInt(s);
+			final int courtToBook = p.getCourt(userPrefix);
+			final String user = p.getUser(userPrefix);
+			final String pass = p.getPassword(userPrefix);
+			final String name = p.getName(userPrefix);
+			//1st session starts at 7am for 30 mins
+			//ends at 10am
+			for (int session : new int[]{1, 2, 3, 4, 5, 6}) {
+				UserSession userSession = loginSession(courtToBook, session, user, pass, name);
+				if (userSession != null) {
+					manager.getSessions().add(userSession);
+				}
+			}
+		}
+		return this;
+	}
+
+	private BookingApp printSuccessfulSessions() {
+		SessionManager manager = SessionManager.getInstance();
+		LOG.info("The following session(s) has been successful:");
+		manager.getSessions().stream().filter(s -> s.getStatus() == BookingStatus.SUCCESSFUL).forEach(s -> {
+			LOG.info(s.getBookingInfo() + " - " + s.getStatus().name());
+		});
+		return this;
+	}
+
+	private String getBookingDate() {
 		final String date;
 		if (p.getCustomDate() != null) {
 			//edge case for testing
 			date = p.getCustomDate();
 		} else {
 			String day = p.getDay() == null ? "" : p.getDay();
-			if(day.equalsIgnoreCase("saturday")) {
+			if (day.equalsIgnoreCase("saturday")) {
 				date = findDayOfWeekWeek(DayOfWeek.SATURDAY, 2);
-			} else if(day.equalsIgnoreCase("sunday")) {
+			} else if (day.equalsIgnoreCase("sunday")) {
 				date = findDayOfWeekWeek(DayOfWeek.SUNDAY, 2);
 			} else {
 				date = findTheNearestWeekendBookingDate();
 			}
 		}
 		LOG.info("Trying to book " + date);
-		SessionManager manager = SessionManager.getInstance();
-
-		for(String s :  p.getUsersList()) {
-			int userPrefix = Integer.parseInt(s);
-			final int courtToBook = p.getCourt(userPrefix);
-			final String user = p.getUser(userPrefix);
-			final String pass = p.getPassword(userPrefix);
-			manager.getSessions().add(loginSession(p, date, courtToBook, 1, user, pass));
-			manager.getSessions().add(loginSession(p, date, courtToBook, 2, user, pass));
-			manager.getSessions().add(loginSession(p, date, courtToBook, 3, user, pass));
-			manager.getSessions().add(loginSession(p, date, courtToBook, 4, user, pass));
-			manager.getSessions().add(loginSession(p, date, courtToBook, 5, user, pass));
-			manager.getSessions().add(loginSession(p, date, courtToBook, 6, user, pass));
-		}
-
-		//startup all sessions
-		beginBooking();
-
-		//logout all sessions
-		logoutAllSessions();
-		LOG.info("Booking completed see bookingApp.log for full details");
+		return date;
 	}
 
-	private static void beginBooking() {
+	private BookingApp beginBookingDaemon() {
 		final SessionManager manager = SessionManager.getInstance();
 		manager.initalise();
 		manager.getSessions().stream().forEach(s -> {
 			manager.submit(s.getBookingJob());
 		});
+		return this;
 	}
 
-	private static void logoutAllSessions() {
+	private BookingApp logoutAllSessions() {
 		SessionManager manager = SessionManager.getInstance();
 		manager.getTasks().stream().forEach(t -> {
 			try {
@@ -94,6 +120,7 @@ public class BookingApp {
 		});
 		manager.getSessions().stream().forEach(s -> s.logout());
 		manager.shutdown();
+		return this;
 	}
 
 	private static String findDayOfWeekWeek(DayOfWeek dayOfWeek, int week) {
@@ -106,7 +133,7 @@ public class BookingApp {
 		final int weekCount = 2;
 		LocalDate sat = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.SATURDAY)).plusWeeks(weekCount);
 		LocalDate sun = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.SUNDAY)).plusWeeks(weekCount);
-		if(sat.isAfter(sun)) {
+		if (sat.isAfter(sun)) {
 			date = sun;
 		} else {
 			date = sat;
@@ -116,20 +143,20 @@ public class BookingApp {
 	}
 
 
-	private static UserSession loginSession(AppProperties p, String date, int court, int session,
-	                                 String user, String password) {
+	private static UserSession loginSession(int court, int session,
+	                                        String user, String password, String name) {
 		int attempt = 0;
 		while (attempt < RETRY_ATTEMPT_MAX) {
 			try {
-				UserSession session1 = UserSession.loginSession(p, user, password);
-				session1.navigateToCalendar(date);
+				UserSession session1 = UserSession.loginSession(p, user, password, name);
+				session1.navigateToCalendar(dateToBook);
 				session1.sessionToBook(court, session);
 				return session1;
 			} catch (Exception e) {
-				LOG.log(Level.SEVERE,"Booking session failed, retrying " + (++attempt), e);
+				LOG.log(Level.SEVERE, "Booking session failed, retrying " + (++attempt), e);
 			}
 		}
-		LOG.log(Level.SEVERE,"Maximum attempt reached, abort");
+		LOG.log(Level.SEVERE, "Maximum attempt reached, abort");
 		return null;
 	}
 
