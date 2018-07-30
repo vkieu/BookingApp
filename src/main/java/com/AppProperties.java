@@ -5,14 +5,12 @@ import java.util.logging.Logger;
 
 public class AppProperties {
 
-	private static Logger LOG = BookingApp.LOG;
 
 	private static AppProperties instance = new AppProperties();
 	private Properties prop;
 
 	private AppProperties() {
 		try {
-			LOG.info("Init properties");
 			prop = new Properties();
 			//load the app.properties
 			prop.load(Thread.currentThread().getContextClassLoader().getResourceAsStream("app.properties"));
@@ -20,7 +18,7 @@ public class AppProperties {
 			prop.putAll(System.getProperties());
 			//prop.list(System.out);
 		} catch(Exception e) {
-			LOG.log(Level.SEVERE, "Error loading properties ", e);
+			e.printStackTrace();
 		}
 	}
 
@@ -72,6 +70,10 @@ public class AppProperties {
 	public String[] getUsersList() {
 		String usersList = prop.getProperty("users.list");
 		return usersList.split(",");
+	}
+
+	public String getProperty(String key) {
+		return prop.getProperty(key);
 	}
 
 }

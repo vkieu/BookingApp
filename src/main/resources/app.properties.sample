@@ -44,3 +44,10 @@ park=17
 #day=Saturday
 #day=Sunday
 #customDate=11-Jun-2018
+
+
+mail.from=
+#mail.to=emai.adress1@domain.com,email.address2@domain.com
+mail.to=
+mail.subject=Successful booking sessions
+mail.host=smtp.virginmedia.com

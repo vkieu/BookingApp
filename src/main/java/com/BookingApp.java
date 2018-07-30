@@ -38,6 +38,7 @@ public class BookingApp {
 
 		LOG.info("Booking app started");
 		p = AppProperties.getInstance();
+		LOG.info("Properties loaded");
 
 		//calculate the date to book
 		dateToBook = engine.getBookingDate();
@@ -46,7 +47,7 @@ public class BookingApp {
 				.loginAllSessions()
 				.beginBookingDaemon()
 				.logoutAllSessions()
-				.printSuccessfulSessions();
+				.postBooking();
 
 		LOG.info("Booking completed see bookingApp.log for full details");
 	}
@@ -72,12 +73,19 @@ public class BookingApp {
 		return this;
 	}
 
-	private BookingApp printSuccessfulSessions() {
+	private BookingApp postBooking() {
 		SessionManager manager = SessionManager.getInstance();
-		LOG.info("The following session(s) has been successful:");
+		String ident = System.getenv("COMPUTERNAME");
+		StringBuilder sb = new StringBuilder("ID>>>").append(ident).append("\n")
+		.append("The following session(s) has been successful:").append("\n");
 		manager.getSessions().stream().filter(s -> s.getStatus() == BookingStatus.SUCCESSFUL).forEach(s -> {
-			LOG.info(s.getBookingInfo() + " - " + s.getStatus().name());
+			sb.append(s.getBookingInfo() + " - " + s.getStatus().name()).append("\n");
 		});
+		LOG.info(sb.toString());
+
+		//send successful booking
+		SendHTMLEmail.send(sb.toString());
+		LOG.info("Email sent");
 		return this;
 	}
 
