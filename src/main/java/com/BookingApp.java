@@ -37,6 +37,7 @@ public class BookingApp {
 		LOG.addHandler(fileHandler);
 
 		LOG.info("Booking app started");
+		LOG.info("Build: 04082018");
 		p = AppProperties.getInstance();
 		LOG.info("Properties loaded");
 
