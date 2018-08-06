@@ -223,6 +223,8 @@ public class UserSession {
 							status = BookingStatus.FAILED_RETRY;
 						} else if (html.toLowerCase().contains("already booked")) {
 							status = BookingStatus.FAILED_ABORT;
+						} else if (html.toLowerCase().contains("Maximum Daily Bookings")) {
+							status = BookingStatus.FAILED_ABORT;
 						} else if (html.toLowerCase().contains("booked")) {
 							status = BookingStatus.SUCCESSFUL;
 						}

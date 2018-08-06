@@ -37,7 +37,7 @@ public class BookingApp {
 		LOG.addHandler(fileHandler);
 
 		LOG.info("Booking app started");
-		LOG.info("Build: 04082018");
+		LOG.info("Build: 05082018 - 1901");
 		p = AppProperties.getInstance();
 		LOG.info("Properties loaded");
 
@@ -64,7 +64,10 @@ public class BookingApp {
 			final String name = p.getName(userPrefix);
 			//1st session starts at 7am for 30 mins
 			//ends at 10am
-			for (int session : new int[]{1, 2, 3, 4, 5, 6}) {
+			for (int session : new int[]{
+					//1,
+					2, 3, 4, 5, 6
+					}) {
 				UserSession userSession = loginSession(courtToBook, session, user, pass, name);
 				if (userSession != null) {
 					manager.getSessions().add(userSession);
