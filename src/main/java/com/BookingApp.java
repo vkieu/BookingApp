@@ -37,7 +37,7 @@ public class BookingApp {
 		LOG.addHandler(fileHandler);
 
 		LOG.info("Booking app started");
-		LOG.info("Build: 05082018 - 1901");
+		LOG.info("Build': 06AUG2018 - 1211");
 		p = AppProperties.getInstance();
 		LOG.info("Properties loaded");
 
@@ -46,7 +46,7 @@ public class BookingApp {
 
 		engine
 				.loginAllSessions()
-				.beginBookingDaemon()
+				.startBookingDaemon()
 				.logoutAllSessions()
 				.postBooking();
 
@@ -58,17 +58,13 @@ public class BookingApp {
 
 		for (String s : p.getUsersList()) {
 			int userPrefix = Integer.parseInt(s);
-			final int courtToBook = p.getCourt(userPrefix);
 			final String user = p.getUser(userPrefix);
 			final String pass = p.getPassword(userPrefix);
 			final String name = p.getName(userPrefix);
 			//1st session starts at 7am for 30 mins
 			//ends at 10am
-			for (int session : new int[]{
-					//1,
-					2, 3, 4, 5, 6
-					}) {
-				UserSession userSession = loginSession(courtToBook, session, user, pass, name);
+			for (int thread = 0; thread < p.getThreadPerUser(); thread++) {
+				UserSession userSession = loginSession(user, pass, name);
 				if (userSession != null) {
 					manager.getSessions().add(userSession);
 				}
@@ -80,10 +76,12 @@ public class BookingApp {
 	private BookingApp postBooking() {
 		SessionManager manager = SessionManager.getInstance();
 		String ident = System.getenv("COMPUTERNAME");
-		StringBuilder sb = new StringBuilder("ID>>>").append(ident).append("\n")
-		.append("The following session(s) has been successful:").append("\n");
-		manager.getSessions().stream().filter(s -> s.getStatus() == BookingStatus.SUCCESSFUL).forEach(s -> {
-			sb.append(s.getBookingInfo() + " - " + s.getStatus().name()).append("\n");
+		StringBuilder sb = new StringBuilder("ID>>>")
+				.append(ident).append("\n")
+				.append("The following session(s) has been successful:")
+				.append("\n");
+		manager.getSuccessfulSessions().forEach(s -> {
+			sb.append(s).append("\n");
 		});
 		LOG.info(sb.toString());
 
@@ -112,9 +110,9 @@ public class BookingApp {
 		return date;
 	}
 
-	private BookingApp beginBookingDaemon() {
+	private BookingApp startBookingDaemon() {
 		final SessionManager manager = SessionManager.getInstance();
-		manager.initalise();
+		manager.initialise();
 		manager.getSessions().stream().forEach(s -> {
 			manager.submit(s.getBookingJob());
 		});
@@ -155,17 +153,15 @@ public class BookingApp {
 	}
 
 
-	private static UserSession loginSession(int court, int session,
-	                                        String user, String password, String name) {
+	private static UserSession loginSession(String user, String password, String name) {
 		int attempt = 0;
 		while (attempt < RETRY_ATTEMPT_MAX) {
 			try {
 				UserSession session1 = UserSession.loginSession(p, user, password, name);
 				session1.navigateToCalendar(dateToBook);
-				session1.sessionToBook(court, session);
 				return session1;
 			} catch (Exception e) {
-				LOG.log(Level.SEVERE, "Booking session failed, retrying " + (++attempt), e);
+				LOG.log(Level.SEVERE, "Login session failed, retrying " + (++attempt), e);
 			}
 		}
 		LOG.log(Level.SEVERE, "Maximum attempt reached, abort");

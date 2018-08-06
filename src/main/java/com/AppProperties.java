@@ -67,6 +67,15 @@ public class AppProperties {
 	public String getCustomDate() {
 		return prop.getProperty("customDate");
 	}
+
+	public String[] getSessionsToBook() {
+		String sessionStr = prop.getProperty("sessions.to.book");
+		return sessionStr.split(",");
+	}
+	public String[] getCourtsToBook() {
+		String courtsStr = prop.getProperty("courts.to.book");
+		return courtsStr.split(",");
+	}
 	public String[] getUsersList() {
 		String usersList = prop.getProperty("users.list");
 		return usersList.split(",");
@@ -74,6 +83,10 @@ public class AppProperties {
 
 	public String getProperty(String key) {
 		return prop.getProperty(key);
+	}
+
+	public int getThreadPerUser() {
+		return Integer.parseInt(prop.getProperty("thread.per.user"));
 	}
 
 }

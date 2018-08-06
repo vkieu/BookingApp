@@ -9,12 +9,7 @@ import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.HttpHeaders;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -24,8 +19,8 @@ public class UserSession {
 	private static Logger LOG = BookingApp.LOG;
 
 	private static int trackingId = 0;
-
 	private static final Pattern pattern = Pattern.compile("<TD>Member ID:.+<TD align=center>(\\d+)</TD>");
+
 
 	private AppProperties p;
 	private String user;
@@ -34,11 +29,8 @@ public class UserSession {
 	private Cookie cookie;
 	private long membershipId;
 	private long timer;
-	private int court;
-	private int session;
 	private String allocation;
 	private int id;
-	private BookingStatus status;
 
 	private UserSession(AppProperties p, String user, Cookie cookie, long membershipId,  String name) {
 		this.p = p;
@@ -55,6 +47,7 @@ public class UserSession {
 		c.set(Calendar.SECOND, 0);
 		c.set(Calendar.MILLISECOND, 0);
 		timer = c.getTimeInMillis();
+		this.allocation = SessionManager.getInstance().getAllocationFromPool();
 	}
 
 	public static UserSession loginSession(AppProperties p, String user, String password, String name) throws IOException {
@@ -143,49 +136,10 @@ public class UserSession {
 		LOG.finer("\nNavigateSelectDate>>>\n" + response);
 	}
 
-	private void generateAllocation() {
-		String courtStr = "";
-		switch (court) {
-			case 1:
-				courtStr = "30";
-				break;
-			case 2:
-				courtStr = "31";
-				break;
-			case 3:
-				courtStr = "54";
-				break;
-			case 4:
-				courtStr = "55";
-				break;
-			case 5:
-				courtStr = "56";
-				break;
-			case 6:
-				courtStr = "57";
-				break;
-			default:
-				new UnsupportedOperationException("Court " + court + " is not supported");
-		}
-		String sessionStr = String.valueOf(390 + (session * 30));
-		this.allocation = courtStr + "|" + sessionStr + "|73|9|167|";
-	}
-
-	public void sessionToBook(int court, int session) {
-		if (court < 1 || session < 1) {
-			throw new IllegalArgumentException("court or session need to be 1 or above");
-		}
-		this.court =  court;
-		this.session = session;
-		LOG.info(user + " Attempting to book court " + court + " session " + session);
-		generateAllocation();
-		LOG.finer("calculated court & session time: " + allocation);
-	}
-
 	public Runnable getBookingJob() {
 		return () -> {
 			LOG.info("booker info: " + getBookingInfo());
-			while (true) {
+			while (this.allocation != null) {
 				try {
 					RestResponse response = new JdkRequest(p.getBookingUrl())
 							.uri().queryParam("a", allocation)
@@ -196,9 +150,9 @@ public class UserSession {
 							.as(RestResponse.class);
 					LOG.finer("\nBooking-request>>>\n" + response);
 
-					status = BookingStatus.FAILED_RETRY;
-					if (response.body().toLowerCase().contains("booked by someone else")) {
-						status = BookingStatus.FAILED_ABORT;
+					BookingStatus status = BookingStatus.FAILED_RETRY;
+					if (response.body().toLowerCase().contains("been booked")) {
+						status = BookingStatus.FAILED_NEXT;
 					} else if (response.body().toLowerCase().contains("error")) {
 						status = BookingStatus.FAILED_RETRY;
 					} else if (response.body().toLowerCase().contains("accept")) {
@@ -222,24 +176,37 @@ public class UserSession {
 						if (html.toLowerCase().contains("court period activity")) {
 							status = BookingStatus.FAILED_RETRY;
 						} else if (html.toLowerCase().contains("already booked")) {
-							status = BookingStatus.FAILED_ABORT;
+							status = BookingStatus.FAILED_NEXT;
 						} else if (html.toLowerCase().contains("Maximum Daily Bookings")) {
-							status = BookingStatus.FAILED_ABORT;
+							status = BookingStatus.FAILED_NEXT;
 						} else if (html.toLowerCase().contains("booked")) {
 							status = BookingStatus.SUCCESSFUL;
 						}
 					}
-					if (status != BookingStatus.FAILED_RETRY) {
-						LOG.info(getBookingInfo() + " ? " + status);
-						return;
+					switch (status) {
+						case FAILED_ABORT:
+							return;
+						case SUCCESSFUL:
+							LOG.info(getBookingInfo() + " ? " + status);
+							SessionManager.getInstance().getSuccessfulSessions().add(user + "-" + this.allocation);
+							this.allocation = SessionManager.getInstance().getAllocationFromPool();
+							break;
+						case FAILED_NEXT:
+							this.allocation = SessionManager.getInstance().getAllocationFromPool();
+							break;
+						case FAILED_RETRY:
+							break;
+						default:
 					}
-					final long pausePeriod = getPausePeriod();
-					if(pausePeriod > 0) {
-						Thread.sleep(pausePeriod);
-					} else { //overdrive time
-						LOG.info("Ramup!!! - Paused " + pausePeriod + "ms");
+					if(this.allocation != null) {
+						final long pausePeriod = getPausePeriod();
+						if (pausePeriod > 0) {
+							Thread.sleep(pausePeriod);
+						} else { //overdrive time
+							LOG.info("Ramup!!! - Paused " + pausePeriod + "ms");
+						}
+						System.out.print(id + ".");
 					}
-					System.out.print(id + ".");
 					//retrying
 				} catch (IOException e) {
 					//retrying
@@ -252,24 +219,24 @@ public class UserSession {
 		};
 	}
 
-	public BookingStatus getStatus() {
-		return status;
-	}
+//	public BookingStatus getStatus() {
+//		return status;
+//	}
 
-	private String decodeSessionTime(int session) {
-		switch (session) {
-			case 1: return "7am   ";
-			case 2: return "7:30am";
-			case 3: return "8am   ";
-			case 4: return "8:30am";
-			case 5: return "9am   ";
-			case 6: return "9:30am";
-			default: return ">10am";
-		}
-	}
+//	private String decodeSessionTime(int session) {
+//		switch (session) {
+//			case 1: return "7am   ";
+//			case 2: return "7:30am";
+//			case 3: return "8am   ";
+//			case 4: return "8:30am";
+//			case 5: return "9am   ";
+//			case 6: return "9:30am";
+//			default: return ">10am";
+//		}
+//	}
 
 	public String getBookingInfo() {
-		return id + "-User:" + name + ", court:" + court + ", session:" + decodeSessionTime(session) + " => " + allocation;
+		return id + "-User:" + name + " assigned => " + allocation;
 	}
 
 	private long getPausePeriod() {
@@ -306,5 +273,5 @@ public class UserSession {
 }
 
 enum BookingStatus {
-	FAILED_RETRY, FAILED_ABORT, SUCCESSFUL
+	FAILED_NEXT, FAILED_RETRY, FAILED_ABORT, SUCCESSFUL
 }
