@@ -178,7 +178,7 @@ public class UserSession {
 						} else if (html.toLowerCase().contains("already booked")) {
 							status = BookingStatus.FAILED_NEXT;
 						} else if (html.toLowerCase().contains("Maximum Daily Bookings")) {
-							status = BookingStatus.FAILED_NEXT;
+							status = BookingStatus.FAILED_RETURN;
 						} else if (html.toLowerCase().contains("booked")) {
 							status = BookingStatus.SUCCESSFUL;
 						}
@@ -194,6 +194,9 @@ public class UserSession {
 						case FAILED_NEXT:
 							this.allocation = SessionManager.getInstance().getAllocationFromPool();
 							break;
+						case FAILED_RETURN:
+							SessionManager.getInstance().returnAllocationToPool(this.allocation);
+							return;
 						case FAILED_RETRY:
 							break;
 						default:
@@ -273,5 +276,5 @@ public class UserSession {
 }
 
 enum BookingStatus {
-	FAILED_NEXT, FAILED_RETRY, FAILED_ABORT, SUCCESSFUL
+	FAILED_RETURN, FAILED_NEXT, FAILED_RETRY, FAILED_ABORT, SUCCESSFUL
 }

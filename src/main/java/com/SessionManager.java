@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -16,7 +15,7 @@ public class SessionManager {
 	private static final List<UserSession> sessions = new ArrayList<>();
 	private static final List<Future> tasks = new ArrayList<>();
 
-	private static BlockingQueue<String> bookableAllocations = new ArrayBlockingQueue(100);
+	private static BlockingQueue<String> bookableAllocations = new ArrayBlockingQueue(200);
 	private static Set<String> successfulSessions = new HashSet<>();
 	private static SessionManager instance = new SessionManager();
 
@@ -28,9 +27,11 @@ public class SessionManager {
 		final String[] numberOfCourts = p.getCourtsToBook();
 		final String[] availableSessions = p.getSessionsToBook();
 
-		for(String session : availableSessions) {
-			for(String court : numberOfCourts) {
-				bookableAllocations.add(generateAllocation(Integer.parseInt(court), Integer.parseInt(session)));
+		for(int passes = 0; passes < 3; passes++) {
+			for (String session : availableSessions) {
+				for (String court : numberOfCourts) {
+					bookableAllocations.add(generateAllocation(Integer.parseInt(court), Integer.parseInt(session)));
+				}
 			}
 		}
 	}
@@ -73,6 +74,10 @@ public class SessionManager {
 			throw new RuntimeException(e);
 		}
 	}
+	public synchronized void returnAllocationToPool(String allocation) {
+		bookableAllocations.add(allocation);
+	}
+
 
 	public Set<String> getSuccessfulSessions() {
 		return successfulSessions;
