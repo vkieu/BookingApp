@@ -3,44 +3,51 @@ booking.url=http://booking.theparklangleyclub.co.uk:82/source1/bcsynp.php
 booking.screen.url=http://booking.theparklangleyclub.co.uk:82/source1/BookingScreen.php
 booking.calendar.url=http://booking.theparklangleyclub.co.uk:82/source1/SelectDateFromCalendar.php
 
-#users.list=1,2,3,4,5,6,7,8
+users.list=1,2,3,4,5,6,7,8
 #users.list=7
 #users.list=1,2,3
+
 courts.to.book=1,2,3,4,5,6
 sessions.to.book=1,2,3,4,5,6
 #sessions.to.book=1,2
-thread.per.user=5
 
-1.user=nguyen
+thread.per.user=6
+
+1.user=
+1.name=
 1.password=
 
-
-2.user=nguyen
+2.user=
+2.name=
 2.password=
 
-3.user=truong
+3.user=
+3.name=
 3.password=
 
-4.user=phan
+4.user=
+4.name=
 4.password=
 
-5.user=nguyen
+5.user=
+5.name=
 5.password=
 
-6.user=nguyen
+6.user=
+6.name=
 6.password=
 
-7.user=kieu
+7.user=
+7.name=
 7.password=
 
-8.user=cong
+8.user=
+8.name=
 8.password=
 
 #Willett park=17
 park=17
-#Saturday,Sunday
-#day=Saturday
-#day=Sunday
+
 #customDate=11-Jun-2018
 
 

@@ -27,13 +27,13 @@ public class SessionManager {
 		final String[] numberOfCourts = p.getCourtsToBook();
 		final String[] availableSessions = p.getSessionsToBook();
 
-		for(int passes = 0; passes < 3; passes++) {
-			for (String session : availableSessions) {
-				for (String court : numberOfCourts) {
-					bookableAllocations.add(generateAllocation(Integer.parseInt(court), Integer.parseInt(session)));
-				}
+		for(int passes = 0; passes < 2; passes++) {
+		for (String session : availableSessions) {
+			for (String court : numberOfCourts) {
+				bookableAllocations.add(generateAllocation(Integer.parseInt(court), Integer.parseInt(session)));
 			}
 		}
+	}
 	}
 
 	private String generateAllocation(int court, int session) {
