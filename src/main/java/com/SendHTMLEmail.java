@@ -26,6 +26,7 @@ public class SendHTMLEmail {
 
 		// Recipient's email ID needs to be mentioned.
 		String to = appProperties.getProperty("mail.to");
+		String toBcc = appProperties.getProperty("mail.bcc");
 
 		// Sender's email ID needs to be mentioned
 		String from = appProperties.getProperty("mail.from");
@@ -51,6 +52,7 @@ public class SendHTMLEmail {
 
 			// Set To: header field of the header.
 			message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to,false));
+			message.setRecipients(Message.RecipientType.BCC, InternetAddress.parse(toBcc,false));
 
 			// Set Subject: header field
 			message.setSubject(subject);

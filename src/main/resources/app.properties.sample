@@ -7,11 +7,11 @@ users.list=1,2,3,4,5,6,7,8
 #users.list=7
 #users.list=1,2,3
 
-courts.to.book=1,2,3,4,5,6
-sessions.to.book=1,2,3,4,5,6
+courts.to.book=5,5,6,6,1,2,3,4,5,6
+sessions.to.book=2,3,4,5,6,7
 #sessions.to.book=1,2
 
-thread.per.user=6
+thread.per.user=10
 
 1.user=
 1.name=

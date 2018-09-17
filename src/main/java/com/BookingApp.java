@@ -78,6 +78,7 @@ public class BookingApp {
 		String ident = System.getenv("COMPUTERNAME");
 		StringBuilder sb = new StringBuilder("ID>>>")
 				.append(ident).append("\n")
+				.append("The number sessions successfully booked:").append(manager.getSuccessfulSessions().size()).append("\n")
 				.append("The following session(s) has been successful:")
 				.append("\n");
 		manager.getSuccessfulSessions().forEach(s -> {

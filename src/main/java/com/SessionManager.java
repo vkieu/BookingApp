@@ -27,13 +27,13 @@ public class SessionManager {
 		final String[] numberOfCourts = p.getCourtsToBook();
 		final String[] availableSessions = p.getSessionsToBook();
 
-		for(int passes = 0; passes < 2; passes++) {
-		for (String session : availableSessions) {
-			for (String court : numberOfCourts) {
-				bookableAllocations.add(generateAllocation(Integer.parseInt(court), Integer.parseInt(session)));
+		for (int passes = 0; passes < 2; passes++) {
+			for (String session : availableSessions) {
+				for (String court : numberOfCourts) {
+					bookableAllocations.add(generateAllocation(Integer.parseInt(court), Integer.parseInt(session)));
+				}
 			}
 		}
-	}
 	}
 
 	private String generateAllocation(int court, int session) {
@@ -66,7 +66,7 @@ public class SessionManager {
 
 	public synchronized String getAllocationFromPool() {
 		try {
-			if(!bookableAllocations.isEmpty()) {
+			if (!bookableAllocations.isEmpty()) {
 				return bookableAllocations.take();
 			}
 			return null;
@@ -74,6 +74,7 @@ public class SessionManager {
 			throw new RuntimeException(e);
 		}
 	}
+
 	public synchronized void returnAllocationToPool(String allocation) {
 		bookableAllocations.add(allocation);
 	}
@@ -94,11 +95,13 @@ public class SessionManager {
 	public void initialise() {
 		executor = Executors.newFixedThreadPool(sessions.size());
 	}
+
 	public void shutdown() {
-		if(executor != null) {
+		if (executor != null) {
 			executor.shutdown();
 		}
 	}
+
 	public void submit(Runnable r) {
 		tasks.add(executor.submit(r));
 	}
