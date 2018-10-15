@@ -4,3 +4,4 @@ target
 *.log
 */app.properties
 out
+*.app/*
