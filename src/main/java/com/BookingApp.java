@@ -1,6 +1,8 @@
 package com;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
@@ -75,7 +77,14 @@ public class BookingApp {
 
 	private BookingApp postBooking() {
 		SessionManager manager = SessionManager.getInstance();
-		String ident = System.getenv("COMPUTERNAME");
+
+		String ident = "unknown";
+		try {
+			ident = InetAddress.getLocalHost().getHostName();
+		} catch (UnknownHostException uh) {
+			//noop
+		}
+
 		StringBuilder sb = new StringBuilder("ID>>>")
 				.append(ident).append("\n")
 				.append("The number sessions successfully booked:").append(manager.getSuccessfulSessions().size()).append("\n")

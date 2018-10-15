@@ -177,12 +177,13 @@ public class UserSession {
 							status = BookingStatus.FAILED_RETRY;
 						} else if (html.toLowerCase().contains("already booked")) {
 							status = BookingStatus.FAILED_NEXT;
-						} else if (html.toLowerCase().contains("Maximum Daily Bookings")) {
+						} else if (html.toLowerCase().contains("maximum daily bookings")) {
 							status = BookingStatus.FAILED_RETURN;
 						} else if (html.toLowerCase().contains("booked")) {
 							status = BookingStatus.SUCCESSFUL;
 						}
 					}
+					LOG.finer(status.toString() + response);
 					switch (status) {
 						case FAILED_ABORT:
 							return;

@@ -5,20 +5,19 @@ import java.util.logging.Logger;
 
 public class AppProperties {
 
-
 	private static AppProperties instance = new AppProperties();
 	private Properties prop;
 
 	private AppProperties() {
 		try {
-			prop = new Properties();
+			prop = EncryptorUtil.getPropertiesEncryptor();
 			//load the app.properties
-			prop.load(Thread.currentThread().getContextClassLoader().getResourceAsStream("app.properties"));
+			prop.load(Thread.currentThread().getContextClassLoader().getResourceAsStream("app.properties.enc"));
 			//override with system properties via -D
 			prop.putAll(System.getProperties());
 			//prop.list(System.out);
 		} catch(Exception e) {
-			e.printStackTrace();
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -89,4 +88,7 @@ public class AppProperties {
 		return Integer.parseInt(prop.getProperty("thread.per.user"));
 	}
 
+	public Properties getProperties() {
+		return prop;
+	}
 }
