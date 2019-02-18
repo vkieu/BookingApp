@@ -45,6 +45,10 @@ public class AppProperties {
 		return prop.getProperty(user+".name");
 	}
 
+	public String getExcept(int user) {
+		return prop.getProperty(user+".except");
+	}
+
 	public String getUser(int user) {
 		return prop.getProperty(user+".user");
 	}

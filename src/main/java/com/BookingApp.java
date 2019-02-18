@@ -23,7 +23,9 @@ public class BookingApp {
 	public static Logger LOG;
 	private static final int RETRY_ATTEMPT_MAX = 10;
 	private static AppProperties p = null;
+
 	private static String dateToBook;
+	private static String satOrSun = "SAT";
 
 	public static void main(String[] args) throws IOException {
 		//config logger
@@ -39,7 +41,7 @@ public class BookingApp {
 		LOG.addHandler(fileHandler);
 
 		LOG.info("Booking app started");
-		LOG.info("Build': 06AUG2018 - 1211");
+		LOG.info("Build': 25Jan2019 - 1643");
 		p = AppProperties.getInstance();
 		LOG.info("Properties loaded");
 
@@ -63,6 +65,11 @@ public class BookingApp {
 			final String user = p.getUser(userPrefix);
 			final String pass = p.getPassword(userPrefix);
 			final String name = p.getName(userPrefix);
+			final String except = p.getExcept(userPrefix);
+			if (except != null && satOrSun.contains(except)) {
+				LOG.warning("User " + name + " has an exception for " + except);
+				continue;
+			}
 			//1st session starts at 7am for 30 mins
 			//ends at 10am
 			for (int thread = 0; thread < p.getThreadPerUser(); thread++) {
@@ -88,11 +95,11 @@ public class BookingApp {
 		StringBuilder sb = new StringBuilder("ID>>>")
 				.append(ident).append("\n")
 				.append("The number sessions successfully booked:").append(manager.getSuccessfulSessions().size()).append("\n")
-				.append("The following session(s) has been successful:")
+				.append("The following session(s) has been successful for ").append(dateToBook).append(" : ")
 				.append("\n");
-		manager.getSuccessfulSessions().forEach(s -> {
-			sb.append(s).append("\n");
-		});
+		manager.getSuccessfulSessions().forEach(
+				s -> sb.append(translate(s)).append("\n")
+		);
 		LOG.info(sb.toString());
 
 		//send successful booking
@@ -101,17 +108,22 @@ public class BookingApp {
 		return this;
 	}
 
+	private String translate(String booking) {
+		return SessionManager.getInstance().getDecodedAllocation(booking);
+	}
+
 	private String getBookingDate() {
 		final String date;
 		if (p.getCustomDate() != null) {
-			//edge case for testing
-			date = p.getCustomDate();
+			date = p.getCustomDate();            //edge case for testing
 		} else {
 			String day = p.getDay() == null ? "" : p.getDay();
 			if (day.equalsIgnoreCase("saturday")) {
 				date = findDayOfWeekWeek(DayOfWeek.SATURDAY, 2);
+				satOrSun = "SAT";
 			} else if (day.equalsIgnoreCase("sunday")) {
 				date = findDayOfWeekWeek(DayOfWeek.SUNDAY, 2);
+				satOrSun = "SUN";
 			} else {
 				date = findTheNearestWeekendBookingDate();
 			}
@@ -155,8 +167,10 @@ public class BookingApp {
 		LocalDate sun = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.SUNDAY)).plusWeeks(weekCount);
 		if (sat.isAfter(sun)) {
 			date = sun;
+			satOrSun = "SUN";
 		} else {
 			date = sat;
+			satOrSun = "SAT";
 		}
 		LOG.info("nearest booking date is: " + date.getDayOfWeek() + ", " + date.toString());
 		return date.format(DateTimeFormatter.ofPattern("dd-MMM-yyyy"));

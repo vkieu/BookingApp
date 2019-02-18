@@ -189,7 +189,7 @@ public class UserSession {
 							return;
 						case SUCCESSFUL:
 							LOG.info(getBookingInfo() + " ? " + status);
-							SessionManager.getInstance().getSuccessfulSessions().add(user + "-" + this.allocation);
+							SessionManager.getInstance().getSuccessfulSessions().add(name + "-" + this.allocation);
 							this.allocation = SessionManager.getInstance().getAllocationFromPool();
 							break;
 						case FAILED_NEXT:

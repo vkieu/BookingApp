@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -30,13 +31,82 @@ public class SessionManager {
 		for (int passes = 0; passes < 2; passes++) {
 			for (String session : availableSessions) {
 				for (String court : numberOfCourts) {
-					bookableAllocations.add(generateAllocation(Integer.parseInt(court), Integer.parseInt(session)));
+					bookableAllocations.add(getCodedAllocation(Integer.parseInt(court), Integer.parseInt(session)));
 				}
 			}
 		}
 	}
 
-	private String generateAllocation(int court, int session) {
+	public String getDecodedAllocation(String codedAlloction) {
+		StringTokenizer tokenizer = new StringTokenizer(codedAlloction, "|");
+		if (tokenizer.hasMoreElements()) {
+			final String token1 = tokenizer.nextToken();
+			final String user = token1.substring(0, token1.indexOf("-"));
+			final String courtStr = token1.substring(user.length() + 1);
+			int court = 0;
+			switch (courtStr) {
+				case "30":
+					court = 1;
+					break;
+				case "31":
+					court = 2;
+					break;
+				case "54":
+					court = 3;
+					break;
+				case "55":
+					court = 4;
+					break;
+				case "56":
+					court = 5;
+					break;
+				case "57":
+					court = 6;
+					break;
+				default:
+					new UnsupportedOperationException("Unrecognized court slot " + courtStr);
+			}
+
+			final String timeSlotStr = tokenizer.nextToken();
+			final int session = (Integer.parseInt(timeSlotStr) - 390) / 30;
+			String sessionTime = "";
+			switch (session) {
+				case 1:
+					sessionTime = "7am";
+					break;
+				case 2:
+					sessionTime = "7:30am";
+					break;
+				case 3:
+					sessionTime = "8am";
+					break;
+				case 4:
+					sessionTime = "8:30am";
+					break;
+				case 5:
+					sessionTime = "9am";
+					break;
+				case 6:
+					sessionTime = "9:30am";
+					break;
+				case 7:
+					sessionTime = "10am";
+					break;
+				case 8:
+					sessionTime = "10:30am";
+					break;
+				case 9:
+					sessionTime = "11am";
+					break;
+				default:
+					//noep
+			}
+			return user + " - booked court:" + court + " for " + sessionTime;
+		}
+		return "";
+	}
+
+	private String getCodedAllocation(int court, int session) {
 		String courtStr = "";
 		switch (court) {
 			case 1:

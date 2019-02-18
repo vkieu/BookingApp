@@ -51,8 +51,10 @@ public class SendHTMLEmail {
 			message.setFrom(new InternetAddress(from));
 
 			// Set To: header field of the header.
-			message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to,false));
-			message.setRecipients(Message.RecipientType.BCC, InternetAddress.parse(toBcc,false));
+			message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to, false));
+			if (toBcc != null) {
+				message.setRecipients(Message.RecipientType.BCC, InternetAddress.parse(toBcc, false));
+			}
 
 			// Set Subject: header field
 			message.setSubject(subject);
