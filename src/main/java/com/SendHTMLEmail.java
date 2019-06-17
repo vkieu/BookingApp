@@ -66,7 +66,7 @@ public class SendHTMLEmail {
 
 			Transport trnsport = session.getTransport("smtp");
 			//keep username password here
-			trnsport.connect(host, "minh.kieu@ntlworld.com", "Just4Minh");
+			trnsport.connect(host, appProperties.getProperty("mail.username"), appProperties.getProperty("mail.password"));
 			message.saveChanges();
 			trnsport.sendMessage(message, message.getAllRecipients());
 			trnsport.close();

@@ -56,3 +56,5 @@ mail.from=
 mail.to=
 mail.subject=Successful booking sessions
 mail.host=smtp.virginmedia.com
+mail.username=
+mail.password=
