@@ -213,6 +213,7 @@ public class UserSession {
 					if(this.allocation != null) {
 						final long pausePeriod = getPausePeriod();
 						if (pausePeriod > 0) {
+							LOG.info("Sleeping for " + pausePeriod + "ms");
 							Thread.sleep(pausePeriod);
 						}
 						System.out.print(id + ".");
@@ -246,7 +247,7 @@ public class UserSession {
 		if (timer - now < (60 * 1000) || now >= timer) {//past midnight
 			return 500L;//ram up
 		}
-		return timer - now;//wait and run after midnight
+		return timer - now;//wait and run at midnight
 	}
 
 	public void logout() {
