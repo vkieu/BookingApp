@@ -20,7 +20,7 @@ public class UserSession {
 
 	private static int trackingId = 0;
 	private static final Pattern pattern = Pattern.compile("<TD>Member ID:.+<TD align=center>(\\d+)</TD>");
-
+	private static final int MAX_RETRIED = 3;
 
 	private AppProperties p;
 	private String user;
@@ -46,7 +46,7 @@ public class UserSession {
 		c.set(Calendar.MINUTE, 0);
 		c.set(Calendar.SECOND, 0);
 		c.set(Calendar.MILLISECOND, 0);
-		timer = c.getTimeInMillis();
+		timer = c.getTimeInMillis();//midnight
 		this.allocation = SessionManager.getInstance().getAllocationFromPool();
 	}
 
@@ -139,6 +139,7 @@ public class UserSession {
 	public Runnable getBookingJob() {
 		return () -> {
 			LOG.info("booker info: " + getBookingInfo());
+			int retrying = 0;
 			while (this.allocation != null) {
 				try {
 					RestResponse response = new JdkRequest(p.getBookingUrl())
@@ -146,6 +147,7 @@ public class UserSession {
 							.back()
 							.through(CookieOptimizingWire.class)
 							.header(HttpHeaders.COOKIE, getCookies())
+							.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.92 Safari/537.36")
 							.fetch()
 							.as(RestResponse.class);
 					LOG.finer("\nBooking-request>>>\n" + response);
@@ -186,19 +188,25 @@ public class UserSession {
 					LOG.finer(status.toString() + response);
 					switch (status) {
 						case FAILED_ABORT:
+							LOG.info(getBookingInfo() + " ? " + status);
 							return;
 						case SUCCESSFUL:
 							LOG.info(getBookingInfo() + " ? " + status);
 							SessionManager.getInstance().getSuccessfulSessions().add(name + "-" + this.allocation);
 							this.allocation = SessionManager.getInstance().getAllocationFromPool();
+							retrying = 0;
 							break;
 						case FAILED_NEXT:
+							LOG.info(getBookingInfo() + " ? " + status);
 							this.allocation = SessionManager.getInstance().getAllocationFromPool();
+							retrying = 0;
 							break;
 						case FAILED_RETURN:
+							LOG.info(getBookingInfo() + " ? " + status);
 							SessionManager.getInstance().returnAllocationToPool(this.allocation);
 							return;
 						case FAILED_RETRY:
+							LOG.info(getBookingInfo() + " ? " + status);
 							break;
 						default:
 					}
@@ -206,12 +214,14 @@ public class UserSession {
 						final long pausePeriod = getPausePeriod();
 						if (pausePeriod > 0) {
 							Thread.sleep(pausePeriod);
-						} else { //overdrive time
-							LOG.info("Ramup!!! - Paused " + pausePeriod + "ms");
 						}
 						System.out.print(id + ".");
 					}
 					//retrying
+					if(retrying++ > MAX_RETRIED) {
+						LOG.info(getBookingInfo() + " ? " + status + " max retry reached!");
+						return;
+					}
 				} catch (IOException e) {
 					//retrying
 					LOG.log(Level.SEVERE, "IO Exception, retrying", e);
@@ -223,32 +233,20 @@ public class UserSession {
 		};
 	}
 
-//	public BookingStatus getStatus() {
-//		return status;
-//	}
-
-//	private String decodeSessionTime(int session) {
-//		switch (session) {
-//			case 1: return "7am   ";
-//			case 2: return "7:30am";
-//			case 3: return "8am   ";
-//			case 4: return "8:30am";
-//			case 5: return "9am   ";
-//			case 6: return "9:30am";
-//			default: return ">10am";
-//		}
-//	}
-
 	public String getBookingInfo() {
 		return id + "-User:" + name + " assigned => " + allocation;
 	}
 
 	private long getPausePeriod() {
-		long now = Calendar.getInstance().getTimeInMillis();
-		if (timer - now < (60 * 1000) || now >= timer) {
-			return 0L;//ram up
+		boolean customDay = p.getCustomDate() != null;
+		if (customDay) {
+			return 1000L;//short wait
 		}
-		return 30 * 1000L;//each poll pauses 30s
+		long now = Calendar.getInstance().getTimeInMillis();
+		if (timer - now < (60 * 1000) || now >= timer) {//past midnight
+			return 500L;//ram up
+		}
+		return timer - now;//wait and run after midnight
 	}
 
 	public void logout() {
